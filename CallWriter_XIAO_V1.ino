@@ -8,7 +8,7 @@
 //**
 //** Programmer...: F.W. Krom, PE0FKO
 //**
-//** Description..: 
+//** Description..: 16 Software oscilators generating 16x11 matrix char.
 //**
 //** History......: https://github.com/pe0fko/CallWriter_XIAO_V1.git
 //**
