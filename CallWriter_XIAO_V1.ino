@@ -1,5 +1,19 @@
-// PE0FKO, CallWriter, V2.0
-//
+//************************************************************************
+//**
+//** Project......: CallWrite, Write some text in the waterfall display.
+//**
+//** Platform.....: Seeeduino XIAO, SAMD board
+//**
+//** Licence......: NU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007
+//**
+//** Programmer...: F.W. Krom, PE0FKO
+//**
+//** Description..: 
+//**
+//** History......: https://github.com/pe0fko/CallWriter_XIAO_V1.git
+//**
+//**************************************************************************
+
 #include <TimerTC3.h>
 #include "Font.h"
 
