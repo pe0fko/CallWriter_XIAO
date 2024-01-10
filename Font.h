@@ -1,10 +1,18 @@
-/*
- * Font.h
- *
- * Created: 11-10-2014 20:13:12
- *  Author: fred.krom
- */ 
-
+//************************************************************************
+//**
+//** Project......: CallWrite, Write some text in the waterfall display.
+//**
+//** Platform.....: Seeeduino XIAO, SAMD board
+//**
+//** Licence......: NU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007
+//**
+//** Programmer...: F.W. Krom, PE0FKO
+//**
+//** Description..: Font for the charracter 16x11
+//**
+//** History......: 
+//**
+//**************************************************************************
 
 #define FONT_LENGTH		11
 
