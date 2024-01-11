@@ -20,9 +20,9 @@
 const     float     SecondsOneChar            = 0.8;          // the number of seconds for TX one charracter
 const     uint32_t  ToneLines                 = 16;           // Number of tone carriers TX at the same time
 const     float     ToneStart                 = 2500;          // Tone start Hz
-const     float     ToneBand                  = 400;          // Bandbreete Hz
+const     float     ToneBand                  = 800;          // Bandbreete Hz
+const     uint32_t  SampleRate                = 32000;        // 8KHz sample rate
 const     float     ToneStep                  = ToneBand / ToneLines;
-const     uint32_t  SampleRate                = 24000;        // 8KHz sample rate
 const     uint32_t  SineTableLength           = 1 << 9;       // Length of sine table
 const     uint32_t  OscFraction               = 1 << 16;      // Oscilator 16bit fraction
 const     uint32_t  FilterTableLength         = 32;           // Length of filter table
@@ -30,18 +30,19 @@ const     uint32_t  FilterTableLength         = 32;           // Length of filte
 static    uint32_t  SineTable[SineTableLength];
 static    uint32_t  OSCreg[ToneLines]         = { 0 };
 static    uint32_t  OSCincr[ToneLines]        = { 0 };
-
-//static    uint16_t* pFontTable                = ((uint16_t*)FontTable);
-static    uint16_t* pFontTable                = 0;
-
+static    uint8_t   const*  pFontTable        = &FontTable[0];
 static    uint32_t  NextLineCount             = SecondsOneChar * SampleRate / FONT_LENGTH;
 static    uint32_t  CharLine                  = 0;          // 16 bits of char line
 static    uint32_t  CharNextCount             = 0;          // SR count for next char line load.
+static    bool      GetNewSample              = true;
+static    uint64_t  signal                    = 0;
 
 
+//=====================================================================
+//---- SETUP....  SETUP....  SETUP....  SETUP....  SETUP....    
+//=====================================================================
 void setup()
 {
-//  pinMode(13, OUTPUT);    
   pinMode(LED_BUILTIN, OUTPUT);
 
   analogWriteResolution(10);        // Set analog out resolution to max, 10-bits
@@ -65,6 +66,7 @@ void setup()
     // Start with shifted phase signals, more flat power pattern.
     OSCreg[i]  = random(0, OscFraction * SineTableLength);
 
+    // Miror the text, or not
     uint32_t I = ToneLines - 1 - i;
 //    uint32_t I = i;
 
@@ -76,8 +78,6 @@ void setup()
        / SampleRate
        );
   }
-
-  fontInit();
 
 #if 1
   if (Serial) 
@@ -114,15 +114,14 @@ void setup()
   TimerTc3.attachInterrupt(timerIsr);
 }
 
-static bool       GetNewSample = true;
-static uint64_t   signal = 0;
 
+//=====================================================================
+//---- LOOP....  LOOP....  LOOP....  LOOP....  LOOP....  
+//=====================================================================
 void loop() 
 {
   if (GetNewSample)
   {
-    digitalWrite(LED_BUILTIN, HIGH);   // turn the LED off by making the voltage LOW
-
     signal = 0;
     for(uint32_t i = 0; i < ToneLines; i++)
     {
@@ -138,7 +137,9 @@ void loop()
     {
       CharNextCount = 0;
       fontGetNextLine();
+      digitalWrite(LED_BUILTIN, HIGH);   // turn the LED off, XIAO
     }
+
     GetNewSample = false;
   }
 }
@@ -150,70 +151,35 @@ void timerIsr()
 
   // Only 10bits DAC
   analogWrite(A0, signal & 0x3FF);
+
   GetNewSample = true;
 }
-
-static	uint32_t	indx_ch, indx_ln;	// char and bit-line index
 
 void
 fontGetNextLine()
 {
-//	if (FontEndOfMessageText())
-//		fontInit();
+  static int indx_char=0;
 
-	if (indx_ch >= sizeof(FontTable) / 1)
-		fontInit();
+  if (pFontTable == &FontTable[sizeof FontTable])
+  {
+    Serial.printf("\nFont: initialize (%d).\n", sizeof(FontTable));
+    pFontTable = &FontTable[0];
+    indx_char = 0;
+    digitalWrite(LED_BUILTIN, HIGH);   // turn the samplerate overflow LED off
+  }
 
-	if (indx_ln < FONT_LENGTH)
+	if (indx_char++ < FONT_LENGTH)
 	{
-#if 1
-		CharLine = FontTable[indx_ch+1] << 8 | FontTable[indx_ch+0];
-#elif 1
-
-//		CharLine = FontTable[indx_ch+1] << 8 | FontTable[indx_ch+0];
-//    uint32_t x = *pFontTable;
-    CharLine = *pFontTable++;
-
-//    uint32_t x = *pFontTable++;
-//		CharLine = x;
-
-//	  Serial.printf("Font: Line %04x -- %04x\n", CharLine, x);
-//	  Serial.printf("Font: Line %04x\n", CharLine);
-
-#else
-		CharLine = pFontTable[indx_ch / 2];
-#endif
-		indx_ch += 2;
-		indx_ln += 1;
-	}
-	else if (indx_ln <= FONT_LENGTH)
-	{
-		indx_ln += 1;
-  	CharLine = 0;
+		CharLine = *pFontTable++ | *pFontTable++ << 8;
 	}
 	else
 	{
-		indx_ln = 0;
-		CharLine = 0;
-	  Serial.printf("Font: Next char (%d).\n", indx_ch);
+  	CharLine = 0;           // Blank line
+	  if (indx_char == FONT_LENGTH+2)
+		  indx_char = 0;
 	}
 
+  CharLine <<= 1;           // Shift char one bit
+  CharLine ^= 0xFFFF;       // Inverse
 //  CharLine |= 0x8000;     // Underline the text
-}
-
-void
-fontInit( void )
-{
-  Serial.printf("\nFont: initialize (%d).\n\n", sizeof(FontTable));
-
-  pFontTable = (uint16_t*) &FontTable[0];
-	indx_ch = 0;
-	indx_ln = 0;
-//	fontGetNextLine();
-}
-
-bool
-xFontEndOfMessageText( void )
-{
-	return indx_ch >= sizeof(FontTable) / 2;
 }
