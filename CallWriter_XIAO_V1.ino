@@ -19,8 +19,8 @@
 
 const     float     SecondsOneChar            = 0.8;          // the number of seconds for TX one charracter
 const     uint32_t  ToneLines                 = 16;           // Number of tone carriers TX at the same time
-const     float     ToneStart                 = 2500;          // Tone start Hz
-const     float     ToneBand                  = 800;          // Bandbreete Hz
+const     float     ToneStart                 = 1000;          // Tone start Hz
+const     float     ToneBand                  = 250;          // Bandbreete Hz
 const     uint32_t  SampleRate                = 32000;        // 8KHz sample rate
 const     float     ToneStep                  = ToneBand / ToneLines;
 const     uint32_t  SineTableLength           = 1 << 9;       // Length of sine table
@@ -30,7 +30,7 @@ const     uint32_t  FilterTableLength         = 32;           // Length of filte
 static    uint32_t  SineTable[SineTableLength];
 static    uint32_t  OSCreg[ToneLines]         = { 0 };
 static    uint32_t  OSCincr[ToneLines]        = { 0 };
-static    uint8_t   const*  pFontTable        = &FontTable[0];
+static    uint8_t   const *pFontTable         = &FontTable[0];
 static    uint32_t  NextLineCount             = SecondsOneChar * SampleRate / FONT_LENGTH;
 static    uint32_t  CharLine                  = 0;          // 16 bits of char line
 static    uint32_t  CharNextCount             = 0;          // SR count for next char line load.
@@ -179,7 +179,7 @@ fontGetNextLine()
 		  indx_char = 0;
 	}
 
-  CharLine <<= 1;           // Shift char one bit
-  CharLine ^= 0xFFFF;       // Inverse
-//  CharLine |= 0x8000;     // Underline the text
+//  CharLine <<= 1;           // Shift char one bit
+//  CharLine ^= 0xFFFF;       // Inverse
+  CharLine |= 0x8000;     // Underline the text
 }
