@@ -132,8 +132,8 @@ void loop()
 
     Signal /= ToneLines;                // [4.10] => [.10]
 
-    if (Signal < -512) Signal = -512;  // Only 10 bits DAC in SAMD21
-    if (Signal >  511) Signal =  511;  // Range -513 ... 511
+    if (Signal < -512) Signal = -512;   // Only 10 bits DAC in SAMD21
+    if (Signal >  511) Signal =  511;   // Range -513 ... 511
 
     Signal += 512;                      // Uplift negative value
     Signal &= 0x3FF;                    // Hard set 10 bits
