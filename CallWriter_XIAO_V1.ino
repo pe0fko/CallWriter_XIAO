@@ -27,7 +27,8 @@ const     uint32_t  SineTableLength           = 1 << 9;       // Length of sine 
 const     uint32_t  OscFraction               = 1 << 16;      // Oscilator 16bit fraction
 const     uint32_t  FilterTableLength         = 32;           // Length of filter table
 
-static    uint32_t  SineTable[SineTableLength];
+static    int64_t   Signal                    = 0;
+static    int32_t   SineTable[SineTableLength];
 static    uint32_t  OSCreg[ToneLines]         = { 0 };
 static    uint32_t  OSCincr[ToneLines]        = { 0 };
 static    uint8_t   const *pFontTable         = &FontTable[0];
@@ -35,7 +36,6 @@ static    uint32_t  NextLineCount             = SecondsOneChar * SampleRate / FO
 static    uint32_t  CharLine                  = 0;          // 16 bits of char line
 static    uint32_t  CharNextCount             = 0;          // SR count for next char line load.
 static    bool      GetNewSample              = true;
-static    uint64_t  signal                    = 0;
 
 
 //=====================================================================
@@ -57,7 +57,7 @@ void setup()
   for(uint32_t i = 0; i < SineTableLength; i++)
   {
     float s = sin( (2.0 * M_PI * i) / SineTableLength );
-    SineTable[i] = (uint32_t)(s * 512.0 + 512.0);         // [22.10] 0.0 ... 1024.0
+    SineTable[i] = (int32_t)(s * 512.0);         // [.10] -512.0 ... 512.0
   }
 
   for(uint32_t i = 0; i < ToneLines; i++)
@@ -121,16 +121,22 @@ void loop()
 {
   if (GetNewSample)
   {
-    signal = 0;
+    Signal = 0;
     for(uint32_t i = 0; i < ToneLines; i++)
     {
       OSCreg[i] += OSCincr[i];        // Calc the next oscilator value
 
       if (CharLine & (1u << i))        // Check if dot is needed.
-        signal += SineTable[ (OSCreg[i] / OscFraction) % SineTableLength ]; // [4.10]
+        Signal += SineTable[ (OSCreg[i] / OscFraction) % SineTableLength ]; // [4.10]
     }
 
-    signal /= ToneLines;    // [.10]
+    Signal /= ToneLines;                // [4.10] => [.10]
+
+    if (Signal < -512) Signal = -512;  // Only 10 bits DAC in SAMD21
+    if (Signal >  511) Signal =  511;  // Range -513 ... 511
+
+    Signal += 512;                      // Uplift negative value
+    Signal &= 0x3FF;                    // Hard set 10 bits
 
     if (CharNextCount++ == NextLineCount) 
     {
@@ -148,7 +154,7 @@ void timerIsr()
   if (GetNewSample)                   // Check overrun
     digitalWrite(LED_BUILTIN, LOW);   // turn the LED on, XIAO
 
-  analogWrite(A0, signal & 0x3FF);    // Only 10 bits DAC
+  analogWrite(A0, Signal);            // Output the analog signal
   GetNewSample = true;
 }
 
@@ -178,5 +184,5 @@ fontGetNextLine()
 
 //  CharLine <<= 1;           // Shift char one bit
 //  CharLine ^= 0xFFFF;       // Inverse
-  CharLine |= 0x8000;     // Underline the text
+//  CharLine |= 0x8000;     // Underline the text
 }
