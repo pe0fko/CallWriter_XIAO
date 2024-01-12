@@ -18,10 +18,10 @@
 #include "Font.h"
 
 const     float     SecondsOneChar            = 0.8;          // the number of seconds for TX one charracter
-const     uint32_t  ToneLines                 = 16;           // Number of tone carriers TX at the same time
-const     float     ToneStart                 = 1000;          // Tone start Hz
+const     float     ToneStart                 = 1000;         // Tone start Hz
 const     float     ToneBand                  = 250;          // Bandbreete Hz
-const     uint32_t  SampleRate                = 32000;        // 8KHz sample rate
+const     uint32_t  ToneLines                 = 16;           // Number of tone carriers TX at the same time
+const     uint32_t  SampleRate                = 22000;        // 22KHz sample rate
 const     float     ToneStep                  = ToneBand / ToneLines;
 const     uint32_t  SineTableLength           = 1 << 9;       // Length of sine table
 const     uint32_t  OscFraction               = 1 << 16;      // Oscilator 16bit fraction
@@ -44,7 +44,6 @@ static    uint64_t  signal                    = 0;
 void setup()
 {
   pinMode(LED_BUILTIN, OUTPUT);
-
   analogWriteResolution(10);        // Set analog out resolution to max, 10-bits
 
 #if 1
@@ -57,24 +56,24 @@ void setup()
 
   for(uint32_t i = 0; i < SineTableLength; i++)
   {
-    double s = sin( (2.0 * M_PI * i) / SineTableLength );
-    SineTable[i] = (uint32_t)( ((s + 1.0)/2.0) * 1024.0);   // 0.0 ... 1024.0
+    float s = sin( (2.0 * M_PI * i) / SineTableLength );
+    SineTable[i] = (uint32_t)(s * 512.0 + 512.0);         // [22.10] 0.0 ... 1024.0
   }
 
   for(uint32_t i = 0; i < ToneLines; i++)
   {
     // Start with shifted phase signals, more flat power pattern.
-    OSCreg[i]  = random(0, OscFraction * SineTableLength);
+    OSCreg[i]  = random(0, OscFraction * SineTableLength);  // [.25]
 
     // Miror the text, or not
     uint32_t I = ToneLines - 1 - i;
 //    uint32_t I = i;
 
-    OSCincr[i] = (uint32_t)(
+    OSCincr[i] = (uint32_t)(        // [7.25] [7.16+9]
        (uint64_t)                   // Need >37 bits
-        (ToneStart + I * ToneStep)  // 12bits (< 4096)
-       * OscFraction                // 16bits
-       * SineTableLength            // 9bits
+        (ToneStart + I * ToneStep)  // 12 bits (< 4096)
+       * OscFraction                // 16 bits
+       * SineTableLength            // 9 bits
        / SampleRate
        );
   }
@@ -127,11 +126,11 @@ void loop()
     {
       OSCreg[i] += OSCincr[i];        // Calc the next oscilator value
 
-      if (CharLine & (1 << i))        // Check if dot is needed.
-        signal += SineTable[ (OSCreg[i] / OscFraction) % SineTableLength ];
+      if (CharLine & (1u << i))        // Check if dot is needed.
+        signal += SineTable[ (OSCreg[i] / OscFraction) % SineTableLength ]; // [4.10]
     }
 
-    signal /= ToneLines;
+    signal /= ToneLines;    // [.10]
 
     if (CharNextCount++ == NextLineCount) 
     {
@@ -146,12 +145,10 @@ void loop()
 
 void timerIsr()
 {
-  if (GetNewSample)
-    digitalWrite(LED_BUILTIN, LOW);  // turn the LED on XIAO
+  if (GetNewSample)                   // Check overrun
+    digitalWrite(LED_BUILTIN, LOW);   // turn the LED on, XIAO
 
-  // Only 10bits DAC
-  analogWrite(A0, signal & 0x3FF);
-
+  analogWrite(A0, signal & 0x3FF);    // Only 10 bits DAC
   GetNewSample = true;
 }
 
