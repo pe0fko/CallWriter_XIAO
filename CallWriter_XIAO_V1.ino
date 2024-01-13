@@ -25,16 +25,16 @@ const     uint32_t  SampleRate                = 22000;        // 22KHz sample ra
 const     float     ToneStep                  = ToneBand / ToneLines;
 const     uint32_t  NextLineCount             = SecondsOneChar * SampleRate / FONT_LENGTH;
 const     uint32_t  SineTableLength           = 1 << 9;       // Length of sine table
-const     uint32_t  OscFraction               = 1 << 16;      // Oscilator 16bit fraction
+const     uint32_t  DDSFraction               = 1 << 16;      // DDS oscilator 16bit fraction
 const     uint32_t  FilterTableLength         = 32;           // Length of filter table
 
 static    int64_t   Signal                    = 0;
 static    int32_t   SineTable[SineTableLength];
-static    uint32_t  OSCreg[ToneLines]         = { 0 };
-static    uint32_t  OSCincr[ToneLines]        = { 0 };
-static    uint8_t   const *pFontTable         = &FontTable[0];
-static    uint32_t  CharLine                  = 0;          // 16 bits of char line
-static    uint32_t  CharNextCount             = 0;          // SR count for next char line load.
+static    uint32_t  DDSPhaseAcc[ToneLines]    = { 0 };        // DDS phase register
+static    uint32_t  DDSFreqReg[ToneLines]     = { 0 };        // DDS frequency register increment the phase reg.
+static    uint8_t   const *pFontTable         = FontTable;    // The font table to TX
+static    uint32_t  CharLine                  = 0;            // 16 bits of font char, 16x11 font used
+static    uint32_t  NextCharLineCounter       = 0;            // Samplerate counter for next char to load
 static    bool      GetNewSample              = true;
 
 
@@ -57,22 +57,22 @@ void setup()
   for(uint32_t i = 0; i < SineTableLength; i++)
   {
     float s = sin( (2.0 * M_PI * i) / SineTableLength );
-    SineTable[i] = (int32_t)(s * 512.0);         // [.10] -512.0 ... 512.0
+    SineTable[i] = (int32_t)(s * 512.0);      // [.10] -512.0 ... 512.0
   }
 
   for(uint32_t i = 0; i < ToneLines; i++)
   {
-    // Start with shifted phase signals, more flat power pattern.
-    OSCreg[i]  = random(0, OscFraction * SineTableLength);  // [.25]
+    // Start with random phase signals for more flat power pattern.
+    DDSPhaseAcc[i]  = random(0, DDSFraction * SineTableLength);  // [.25]
 
     // Miror the text, or not
     uint32_t I = ToneLines - 1 - i;
 //    uint32_t I = i;
 
-    OSCincr[i] = (uint32_t)(        // [7.25] [7.16+9]
+    DDSFreqReg[i] = (uint32_t)(     // [7.25] [7.16+9]
        (uint64_t)                   // Need >37 bits
         (ToneStart + I * ToneStep)  // 12 bits (< 4096)
-       * OscFraction                // 16 bits
+       * DDSFraction                // 16 bits
        * SineTableLength            // 9 bits
        / SampleRate
        );
@@ -92,15 +92,15 @@ void setup()
     Serial.printf("ToneStep        : %.3f\n", ToneStep);
     Serial.printf("ToneLines       : %d\n", ToneLines);
     Serial.printf("SineTableLength : %d\n", SineTableLength);
-    Serial.printf("OscFraction     : %d\n", OscFraction);
+    Serial.printf("DDSFraction     : %d\n", DDSFraction);
 
     for(uint32_t i = 0; i < ToneLines; ++i)
     {
       float tone = ToneStart + i * ToneStep;
       Serial.printf(  "Tone  %2d = %3.2fHz, +%2.4f (%d) Incr, %.4f samples.\n"
                     , i, tone
-                    , (float)OSCincr[i] / OscFraction 
-                    , OSCincr[i]
+                    , (float)DDSFreqReg[i] / DDSFraction 
+                    , DDSFreqReg[i]
                     , (float)SampleRate / tone
                     );
     }
@@ -124,10 +124,10 @@ void loop()
     Signal = 0;
     for(uint32_t i = 0; i < ToneLines; i++)
     {
-      OSCreg[i] += OSCincr[i];        // Calc the next oscilator value
+      DDSPhaseAcc[i] += DDSFreqReg[i];        // Calc the next oscilator value
 
       if (CharLine & (1u << i))        // Check if dot is needed.
-        Signal += SineTable[ (OSCreg[i] / OscFraction) % SineTableLength ]; // [4.10]
+        Signal += SineTable[ (DDSPhaseAcc[i] / DDSFraction) % SineTableLength ]; // [4.10]
     }
 
     Signal /= ToneLines;                // [4.10] => [.10]
@@ -138,11 +138,11 @@ void loop()
     Signal += 512;                      // Uplift negative value
     Signal &= 0x3FF;                    // Hard set 10 bits
 
-    if (CharNextCount++ == NextLineCount) 
+    if (NextCharLineCounter++ == NextLineCount) 
     {
-      CharNextCount = 0;
+      NextCharLineCounter = 0;
       fontGetNextLine();
-      digitalWrite(LED_BUILTIN, HIGH);   // turn the LED off, XIAO
+      digitalWrite(LED_BUILTIN, HIGH);   // turn the overflow LED off, XIAO
     }
 
     GetNewSample = false;
