@@ -171,16 +171,16 @@ fontGetNextLine()
     digitalWrite(LED_BUILTIN, HIGH);   // turn the samplerate overflow LED off
   }
 
-	if (indx_char++ < FONT_LENGTH)
-	{
-		CharLine = *pFontTable++ | *pFontTable++ << 8;
-	}
-	else
-	{
-  	CharLine = 0;           // Blank line
-	  if (indx_char == FONT_LENGTH+2)
-		  indx_char = 0;
-	}
+  if (indx_char++ < FONT_LENGTH)
+  {
+    CharLine = *pFontTable++ | *pFontTable++ << 8;
+  }
+  else
+  {
+    CharLine = 0;           // Blank line
+    if (indx_char == FONT_LENGTH+2)
+      indx_char = 0;
+  }
 
 //  CharLine <<= 1;           // Shift char one bit
 //  CharLine ^= 0xFFFF;       // Inverse
