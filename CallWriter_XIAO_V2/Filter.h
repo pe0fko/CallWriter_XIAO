@@ -8,22 +8,22 @@ FIR filter designed with
 
 sampling frequency: 22000 Hz
 
-fixed point precision: 20 bits
+fixed point precision: 16 bits
 
 * 0 Hz - 1800 Hz
   gain = 1
   desired ripple = 3 dB
-  actual ripple = 2.96 dB
+  actual ripple = n/a
 
-* 2200 Hz - 11000 Hz
+* 2300 Hz - 11000 Hz
   gain = 0
   desired attenuation = -20 dB
-  actual attenuation = -18.09 dB
+  actual attenuation = n/a
 
 */
 
 #define FILTER_TAP_NUM 32
-#define FILTER_PRECISION 20
+#define FILTER_PRECISION 16
 
 typedef struct {
   int32_t history[FILTER_TAP_NUM];

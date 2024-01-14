@@ -23,7 +23,7 @@
 
 const     float     SecondsOneChar            = 0.8;          // The number of seconds for TX of one charracter
 const     float     ToneBand                  =  250;         // 250 Bandbreete Hz
-const     float     ToneLPFilter              = 1700;         // Lowpass filter cutoff frequency (100Hz below)
+const     float     ToneLPFilter              = 1500;         // Lowpass filter cutoff frequency (100Hz below)
 const     uint32_t  ToneLines                 = 16;           // Number of tone carriers TX at the same time
 const     uint32_t  SampleRate                = 22000;        // 22KHz (max) sample rate
 const     float     ToneStep                  = ToneBand / ToneLines;
