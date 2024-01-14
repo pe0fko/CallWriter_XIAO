@@ -44,14 +44,14 @@ void Filter_init(Filter* f) {
 }
 
 void Filter_put(Filter* f, int32_t input) {
-  f->history[(f->last_index++) & 31] = input;
+  f->history[(f->last_index++) & (FILTER_TAP_NUM-1)] = input;
 }
 
 int32_t Filter_get(Filter* f) {
-  int32_t acc = 0;
+  long acc = 0;   // acc => 5b (0..32) + 10b sample + 20b taps
   int index = f->last_index, i;
   for(i = 0; i < FILTER_TAP_NUM; ++i) {
-    acc += f->history[(index--) & 31] * filter_taps[i];
+    acc += f->history[(index--) & (FILTER_TAP_NUM-1)] * filter_taps[i];  // [10.0] * [0.20]
   };
   return acc >> FILTER_PRECISION;
 }

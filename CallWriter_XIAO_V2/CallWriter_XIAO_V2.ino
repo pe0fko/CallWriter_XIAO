@@ -38,8 +38,10 @@ static    uint8_t   const *pFontTable         = &FontTable[0];
 static    uint32_t  CharLine                  = 0;          // 16 bits of char line
 static    uint32_t  CharNextCount             = 0;          // SR count for next char line load.
 static    bool      GetNewSample              = true;
+static    Filter    FilterLP                  ;
 
-static    Filter    Filter_1500Hz;
+#define   printf    Serial.printf
+
 
 //=====================================================================
 //---- SETUP....  SETUP....  SETUP....  SETUP....  SETUP....    
@@ -57,19 +59,19 @@ void setup()
       break;
 #endif
 
-  Serial.printf("\n-- CallWriter V2.00 ----------------------\n");
+  printf("\n-- CallWriter V2.00 ------ PE0FKO --------\n");
 
-  Filter_init(&Filter_1500Hz);
+  Filter_init(&FilterLP);
 
-  Serial.printf("Generate sine table, length=%d\n", SineTableLength);
+  printf("Generate sine table, length=%d\n", SineTableLength);
   for(uint32_t i = 0; i < SineTableLength; i++)
   {
     float s = sin( (2.0 * M_PI * i) / SineTableLength );
     SineTable[i] = (int32_t)(s * 512.0);         // [.10] -512.0 ... 512.0
-//    Serial.printf("%3d: %12f %12d\n", i, s, SineTable[i]);
+//    printf("%3d: %12f %12d\n", i, s, SineTable[i]);
   }
 
-  Serial.printf("Generate tone tables, length=%d\n", ToneLines);
+  printf("Generate tone tables, length=%d\n", ToneLines);
   for(uint32_t i = 0; i < ToneLines; i++)
   {
     // Start with shifted phase signals, more flat power pattern.
@@ -91,29 +93,29 @@ void setup()
 #if 1
   if (Serial) 
   {
-    Serial.printf("Sizeof int      : %d\n", sizeof(int));
-    Serial.printf("Sizeof float    : %d\n", sizeof(float));
-    Serial.printf("Sizeof double   : %d\n", sizeof(double));
+    printf("Sizeof int      : %d\n", sizeof(int));
+    printf("Sizeof float    : %d\n", sizeof(float));
+    printf("Sizeof double   : %d\n", sizeof(double));
 
-    Serial.printf("SampleRate      : %d\n", SampleRate);
-    Serial.printf("ToneStart       : %.3f\n", ToneStart);
-    Serial.printf("ToneStep        : %.3f\n", ToneStep);
-    Serial.printf("ToneLines       : %d\n", ToneLines);
-    Serial.printf("SineTableLength : %d\n", SineTableLength);
-    Serial.printf("OscFraction     : %d\n", OscFraction);
+    printf("SampleRate      : %d\n", SampleRate);
+    printf("ToneStart       : %.3f\n", ToneStart);
+    printf("ToneStep        : %.3f\n", ToneStep);
+    printf("ToneLines       : %d\n", ToneLines);
+    printf("SineTableLength : %d\n", SineTableLength);
+    printf("OscFraction     : %d\n", OscFraction);
 
     for(uint32_t i = 0; i < ToneLines; ++i)
     {
       float tone = ToneStart + i * ToneStep;
-      Serial.printf(  "Tone  %2d = %3.2fHz, +%2.4f (%d) Incr, %.4f samples.\n"
-                    , i, tone
-                    , (float)OSCincr[i] / OscFraction 
-                    , OSCincr[i]
-                    , (float)SampleRate / tone
-                    );
+      printf( "Tone  %2d = %3.2fHz, +%2.4f (%d) Incr, %.4f samples.\n"
+              , i, tone
+              , (float)OSCincr[i] / OscFraction 
+              , OSCincr[i]
+              , (float)SampleRate / tone
+            );
     }
 
-    Serial.printf("----------------------------------------------\n\n");
+    printf("----------------------------------------------\n\n");
   }
 #endif
 
@@ -139,12 +141,11 @@ void loop()
 
     Signal /= ToneLines;                // [4.10] => [.10]
 
-    Filter_put(&Filter_1500Hz, Signal); // Low-pass filter 1.8KHz
-    Signal = Filter_get(&Filter_1500Hz);
+    Filter_put(&FilterLP, Signal);      // Add low-pass 1.8KHz filter
+    Signal = Filter_get(&FilterLP);
 
     if (Signal < -512) Signal = -512;   // Only 10 bits DAC in SAMD21
-    if (Signal >  511) Signal =  511;   // Range -513 ... 511
-
+    if (Signal >  511) Signal =  511;   // Range -512 ... 511
     Signal += 512;                      // Uplift negative value
     Signal &= 0x3FF;                    // Hard set 10 bits
 
@@ -175,22 +176,26 @@ fontGetNextLine()
 
   if (pFontTable == &FontTable[sizeof FontTable])
   {
-//    Serial.printf("\nFont: initialize (%d).\n", sizeof(FontTable));
+//    printf("\nFont: initialize (%d).\n", sizeof(FontTable));
     pFontTable = &FontTable[0];
     indx_char = 0;
+
+    if (digitalRead(LED_BUILTIN) == 0)
+      printf("Error: Samplerate overflow!!");
+
     digitalWrite(LED_BUILTIN, HIGH);   // turn the samplerate overflow LED off
   }
 
-	if (indx_char++ < FONT_LENGTH)
-	{
-		CharLine = *pFontTable++ | *pFontTable++ << 8;
-	}
-	else
-	{
-  	CharLine = 0;           // Blank line
-	  if (indx_char == FONT_LENGTH+2)
-		  indx_char = 0;
-	}
+  if (indx_char++ < FONT_LENGTH)
+  {
+    CharLine = *pFontTable++ | *pFontTable++ << 8;
+  }
+  else
+  {
+    CharLine = 0;           // Blank line
+    if (indx_char == FONT_LENGTH+2)
+      indx_char = 0;
+  }
 
 //  CharLine <<= 1;           // Shift char one bit
 //  CharLine ^= 0xFFFF;       // Inverse

@@ -37,6 +37,8 @@ static    uint32_t  CharLine                  = 0;            // 16 bits of font
 static    uint32_t  NextCharLineCounter       = 0;            // Samplerate counter for next char to load
 static    bool      GetNewSample              = true;
 
+#define   printf    Serial.printf
+
 
 //=====================================================================
 //---- SETUP....  SETUP....  SETUP....  SETUP....  SETUP....    
@@ -53,6 +55,8 @@ void setup()
     if (millis() - millisStart > 10000)
       break;
 #endif
+
+  printf("\n-- CallWriter V1.00 ------ PE0FKO --------\n");
 
   for(uint32_t i = 0; i < SineTableLength; i++)
   {
@@ -81,31 +85,29 @@ void setup()
 #if 1
   if (Serial) 
   {
-    Serial.printf("\n-- CallWriter V2.00 ----------------------\n");
+    printf("Sizeof int      : %d\n", sizeof(int));
+    printf("Sizeof float    : %d\n", sizeof(float));
+    printf("Sizeof double   : %d\n", sizeof(double));
 
-    Serial.printf("Sizeof int      : %d\n", sizeof(int));
-    Serial.printf("Sizeof float    : %d\n", sizeof(float));
-    Serial.printf("Sizeof double   : %d\n", sizeof(double));
-
-    Serial.printf("SampleRate      : %d\n", SampleRate);
-    Serial.printf("ToneStart       : %.3f\n", ToneStart);
-    Serial.printf("ToneStep        : %.3f\n", ToneStep);
-    Serial.printf("ToneLines       : %d\n", ToneLines);
-    Serial.printf("SineTableLength : %d\n", SineTableLength);
-    Serial.printf("DDSFraction     : %d\n", DDSFraction);
+    printf("SampleRate      : %d\n", SampleRate);
+    printf("ToneStart       : %.3f\n", ToneStart);
+    printf("ToneStep        : %.3f\n", ToneStep);
+    printf("ToneLines       : %d\n", ToneLines);
+    printf("SineTableLength : %d\n", SineTableLength);
+    printf("DDSFraction     : %d\n", DDSFraction);
 
     for(uint32_t i = 0; i < ToneLines; ++i)
     {
       float tone = ToneStart + i * ToneStep;
-      Serial.printf(  "Tone  %2d = %3.2fHz, +%2.4f (%d) Incr, %.4f samples.\n"
-                    , i, tone
-                    , (float)DDSFreqReg[i] / DDSFraction 
-                    , DDSFreqReg[i]
-                    , (float)SampleRate / tone
-                    );
+      printf( "Tone  %2d = %3.2fHz, +%2.4f (%d) Incr, %.4f samples.\n"
+              , i, tone
+              , (float)DDSFreqReg[i] / DDSFraction 
+              , DDSFreqReg[i]
+              , (float)SampleRate / tone
+            );
     }
 
-    Serial.printf("----------------------------------------------\n\n");
+    printf("----------------------------------------------\n\n");
   }
 #endif
 
@@ -133,8 +135,7 @@ void loop()
     Signal /= ToneLines;                // [4.10] => [.10]
 
     if (Signal < -512) Signal = -512;   // Only 10 bits DAC in SAMD21
-    if (Signal >  511) Signal =  511;   // Range -513 ... 511
-
+    if (Signal >  511) Signal =  511;   // Range -512 ... 511
     Signal += 512;                      // Uplift negative value
     Signal &= 0x3FF;                    // Hard set 10 bits
 
@@ -165,7 +166,7 @@ fontGetNextLine()
 
   if (pFontTable == &FontTable[sizeof FontTable])
   {
-    Serial.printf("\nFont: initialize (%d).\n", sizeof(FontTable));
+//  printf("\nFont: initialize (%d).\n", sizeof(FontTable));
     pFontTable = &FontTable[0];
     indx_char = 0;
     digitalWrite(LED_BUILTIN, HIGH);   // turn the samplerate overflow LED off
