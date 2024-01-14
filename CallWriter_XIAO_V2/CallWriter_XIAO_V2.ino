@@ -19,12 +19,15 @@
 #include "Font.h"
 #include "Filter.h"
 
-const     float     SecondsOneChar            = 0.8;          // the number of seconds for TX one charracter
-const     float     ToneStart                 = 1000;         // Tone start Hz
+//#define   DEBUG
+
+const     float     SecondsOneChar            = 0.8;          // The number of seconds for TX of one charracter
 const     float     ToneBand                  =  250;         // 250 Bandbreete Hz
+const     float     ToneLPFilter              = 1700;         // Lowpass filter cutoff frequency (100Hz below)
 const     uint32_t  ToneLines                 = 16;           // Number of tone carriers TX at the same time
-const     uint32_t  SampleRate                = 22000;        // 22KHz sample rate
+const     uint32_t  SampleRate                = 22000;        // 22KHz (max) sample rate
 const     float     ToneStep                  = ToneBand / ToneLines;
+const     float     ToneStart                 = ToneLPFilter - ToneBand;          // Tone start Hz
 const     uint32_t  NextLineCount             = SecondsOneChar * SampleRate / FONT_LENGTH;
 const     uint32_t  SineTableLength           = 1 << 9;       // Length of sine table
 const     uint32_t  OscFraction               = 1 << 16;      // Oscilator 16bit fraction
@@ -38,9 +41,14 @@ static    uint8_t   const *pFontTable         = &FontTable[0];
 static    uint32_t  CharLine                  = 0;          // 16 bits of char line
 static    uint32_t  CharNextCount             = 0;          // SR count for next char line load.
 static    bool      GetNewSample              = true;
+static    bool      SampleOverflow            = false;
 static    Filter    FilterLP                  ;
 
+#ifdef DEBUG
 #define   printf    Serial.printf
+#else
+#define   printf(...)
+#endif
 
 
 //=====================================================================
@@ -48,10 +56,10 @@ static    Filter    FilterLP                  ;
 //=====================================================================
 void setup()
 {
-  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);     // PIN 13, PIN_LED[23]
   analogWriteResolution(10);        // Set analog out resolution to max, 10-bits
 
-#if 1
+#ifdef DEBUG
   Serial.begin(115200);
   uint32_t millisStart = millis();
   while(!Serial) 
@@ -68,7 +76,6 @@ void setup()
   {
     float s = sin( (2.0 * M_PI * i) / SineTableLength );
     SineTable[i] = (int32_t)(s * 512.0);         // [.10] -512.0 ... 512.0
-//    printf("%3d: %12f %12d\n", i, s, SineTable[i]);
   }
 
   printf("Generate tone tables, length=%d\n", ToneLines);
@@ -90,34 +97,27 @@ void setup()
        );
   }
 
-#if 1
-  if (Serial) 
+  printf("Sizeof int      : %d\n", sizeof(int));
+  printf("Sizeof float    : %d\n", sizeof(float));
+  printf("Sizeof double   : %d\n", sizeof(double));
+
+  printf("SampleRate      : %d\n", SampleRate);
+  printf("ToneStart       : %.3f\n", ToneStart);
+  printf("ToneStep        : %.3f\n", ToneStep);
+  printf("ToneLines       : %d\n", ToneLines);
+  printf("SineTableLength : %d\n", SineTableLength);
+  printf("OscFraction     : %d\n", OscFraction);
+
+  for(uint32_t i = 0; i < ToneLines; ++i)
   {
-    printf("Sizeof int      : %d\n", sizeof(int));
-    printf("Sizeof float    : %d\n", sizeof(float));
-    printf("Sizeof double   : %d\n", sizeof(double));
-
-    printf("SampleRate      : %d\n", SampleRate);
-    printf("ToneStart       : %.3f\n", ToneStart);
-    printf("ToneStep        : %.3f\n", ToneStep);
-    printf("ToneLines       : %d\n", ToneLines);
-    printf("SineTableLength : %d\n", SineTableLength);
-    printf("OscFraction     : %d\n", OscFraction);
-
-    for(uint32_t i = 0; i < ToneLines; ++i)
-    {
-      float tone = ToneStart + i * ToneStep;
-      printf( "Tone  %2d = %3.2fHz, +%2.4f (%d) Incr, %.4f samples.\n"
-              , i, tone
-              , (float)OSCincr[i] / OscFraction 
-              , OSCincr[i]
-              , (float)SampleRate / tone
-            );
-    }
-
-    printf("----------------------------------------------\n\n");
+    float tone = ToneStart + i * ToneStep;
+    printf( "Tone  %2d = %3.2fHz, +%2.4f (0x%08x) Incr, %.4f samp/tone.\n"
+            , i, tone
+            , (float)OSCincr[i] / OscFraction 
+            , OSCincr[i]
+            , (float)SampleRate / tone
+          );
   }
-#endif
 
   TimerTc3.initialize(1000000UL / SampleRate);
   TimerTc3.attachInterrupt(timerIsr);
@@ -153,19 +153,34 @@ void loop()
     {
       CharNextCount = 0;
       fontGetNextLine();
-      digitalWrite(LED_BUILTIN, HIGH);   // turn the LED off, XIAO
     }
 
     GetNewSample = false;
+  }
+
+  static uint32_t millisStart = 0;
+  if (millis() - millisStart > 200)
+  {
+    millisStart = millis();
+
+    if (SampleOverflow)
+    {
+      printf("Error: Sample-rate overflow!\n");
+      digitalWrite(LED_BUILTIN, HIGH);   // turn the samplerate overflow LED OFF
+      SampleOverflow = false;
+    }
   }
 }
 
 void timerIsr()
 {
-  if (GetNewSample)                   // Check overrun
-    digitalWrite(LED_BUILTIN, LOW);   // turn the LED on, XIAO
+  analogWrite(A0, Signal);              // Output the analog signal
 
-  analogWrite(A0, Signal);            // Output the analog signal
+  if (GetNewSample && !SampleOverflow)  // Check overrun
+  {
+    SampleOverflow = true;              // Remember overrun
+    digitalWrite(LED_BUILTIN, LOW);     // turn the LED on, XIAO=LOW
+  }
   GetNewSample = true;
 }
 
@@ -176,14 +191,8 @@ fontGetNextLine()
 
   if (pFontTable == &FontTable[sizeof FontTable])
   {
-//    printf("\nFont: initialize (%d).\n", sizeof(FontTable));
     pFontTable = &FontTable[0];
     indx_char = 0;
-
-    if (digitalRead(LED_BUILTIN) == 0)
-      printf("Error: Samplerate overflow!!");
-
-    digitalWrite(LED_BUILTIN, HIGH);   // turn the samplerate overflow LED off
   }
 
   if (indx_char++ < FONT_LENGTH)

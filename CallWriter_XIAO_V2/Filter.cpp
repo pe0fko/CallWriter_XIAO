@@ -48,7 +48,7 @@ void Filter_put(Filter* f, int32_t input) {
 }
 
 int32_t Filter_get(Filter* f) {
-  long acc = 0;   // acc => 5b (0..32) + 10b sample + 20b taps
+  int32_t acc = 0;   // acc => 5b (0..32) + 10b sample + 20b taps
   int index = f->last_index, i;
   for(i = 0; i < FILTER_TAP_NUM; ++i) {
     acc += f->history[(index--) & (FILTER_TAP_NUM-1)] * filter_taps[i];  // [10.0] * [0.20]
