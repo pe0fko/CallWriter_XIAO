@@ -30,7 +30,7 @@ const     float     ToneStep                  = ToneBand / ToneLines;     // Ton
 const     float     ToneStart                 = ToneLPFilter - ToneBand;  // Tone start in Hz
 const     uint32_t  NextLineCount             = SecondsOneChar * SampleRate / FONT_LENGTH;
 const     uint32_t  SineTableLength           = 1 << 9;       // Length of sine table
-const     uint32_t  DDSFractionBits               = 16;      // Oscilator 16bit fraction
+const     uint32_t  DDSFractionBits           = 16;           // Oscilator 16bit fraction
 const     uint32_t  FilterTableLength         = 32;           // Length of filter table
 volatile  uint32_t  SampleDAC                 = 0;            // New sample for the DAC output
 static    int32_t   SineTable[SineTableLength];               // Sinus table to use in DDS
