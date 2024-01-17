@@ -30,7 +30,7 @@ const     float     ToneStep                  = ToneBand / ToneLines;     // Ton
 const     float     ToneStart                 = ToneLPFilter - ToneBand;  // Tone start in Hz
 const     uint32_t  NextLineCount             = SecondsOneChar * SampleRate / FONT_LENGTH;
 const     uint32_t  SineTableLength           = 1 << 9;       // Length of sine table
-const     uint32_t  OscFraction               = 1 << 16;      // Oscilator 16bit fraction
+const     uint32_t  DDSFractionBits               = 16;      // Oscilator 16bit fraction
 const     uint32_t  FilterTableLength         = 32;           // Length of filter table
 volatile  uint32_t  SampleDAC                 = 0;            // New sample for the DAC output
 static    int32_t   SineTable[SineTableLength];               // Sinus table to use in DDS
@@ -73,25 +73,24 @@ void setup()
   for(uint32_t i = 0; i < SineTableLength; i++)
   {
     float s = sin( (2.0 * M_PI * i) / SineTableLength );
-//    SineTable[i] = (int32_t)(s * 512.0);         // [.10] -512.0 ... 512.0
     SineTable[i] = (int32_t)(s * 2000.0);         // [.12] -2000.0 ... 2000.0
   }
 
   printf("Generate tone tables, length=%d\n", ToneLines);
   for(uint32_t i = 0; i < ToneLines; i++)
   {
-    // Start with shifted phase signals, more flat power pattern.
-    DDSToneAcc[i]  = random(0, OscFraction * SineTableLength);  // [.25]
+    // Start with all shifted phase signals for more flat power spectrum.
+    DDSToneAcc[i]  = random(0, (SineTableLength << DDSFractionBits)-1);  // [.25]
 
     // Miror the text, or not
     uint32_t I = ToneLines - 1 - i;
 //    uint32_t I = i;
 
-    DDSTonePhase[i] = (uint32_t)(        // [7.25] [7.16+9]
-       (uint64_t)                   // Need >37 bits
-        (ToneStart + I * ToneStep)  // 12 bits (< 4096)
-       * OscFraction                // 16 bits
-       * SineTableLength            // 9 bits
+    DDSTonePhase[i] = (uint32_t)(       // [7.25] [7.16+9]
+       (uint64_t)                       // Need >37 bits
+        (ToneStart + I * ToneStep)      // 12 bits (< 4096)
+       * (1 << DDSFractionBits)         // 16 bits
+       * SineTableLength                // 9 bits
        / SampleRate
        );
   }
@@ -99,20 +98,19 @@ void setup()
   printf("Sizeof int      : %d\n", sizeof(int));
   printf("Sizeof float    : %d\n", sizeof(float));
   printf("Sizeof double   : %d\n", sizeof(double));
-
   printf("SampleRate      : %d\n", SampleRate);
   printf("ToneStart       : %.3f\n", ToneStart);
   printf("ToneStep        : %.3f\n", ToneStep);
   printf("ToneLines       : %d\n", ToneLines);
   printf("SineTableLength : %d\n", SineTableLength);
-  printf("OscFraction     : %d\n", OscFraction);
+  printf("DDSFractionBits : %d\n", DDSFractionBits);
 
   for(uint32_t i = 0; i < ToneLines; ++i)
   {
     float tone = ToneStart + i * ToneStep;
     printf( "Tone  %2d = %3.2fHz, +%2.4f (0x%08x) Incr, %.4f samp/tone.\n"
             , i, tone
-            , (float)DDSTonePhase[i] / OscFraction 
+            , (float)DDSTonePhase[i] / (1 << DDSFractionBits) 
             , DDSTonePhase[i]
             , (float)SampleRate / tone
           );
@@ -138,7 +136,7 @@ void loop()
     {
       DDSToneAcc[i] += DDSTonePhase[i];          // Calc the next oscilator value
       if (CharLine & (1u << i))         // Check if dot is needed.
-        Signal += SineTable[ (DDSToneAcc[i] / OscFraction) % SineTableLength ]; // [.14]
+        Signal += SineTable[ (DDSToneAcc[i] >> DDSFractionBits) % SineTableLength ]; // [.14]
     }
 
     Signal /= 1 << 8;                   // [4.14] => [.10]
