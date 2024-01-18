@@ -213,7 +213,7 @@ fontGetNextLine()
 #endif
 }
 
-
+// TODO Taps[] only half use
 int FilterLP(int input)                         // Input 10bits signed
 {
   // int32_t: 5.78b (0..55) + 10b sample + 12.037b taps = 27.817bits
