@@ -22,12 +22,12 @@
 #define   DEBUG
 
 const     float     SecondsOneChar            = 0.8;          // The number of seconds for TX of one charracter
+const     float     ToneStart                 = 1000;         // Tone start in Hz
 const     float     ToneBand                  =  400;         // 250 Bandbreete Hz
 const     float     ToneLPFilter              = 1500;         // Lowpass filter cutoff frequency (100Hz below)
 const     uint32_t  ToneLines                 = 16;           // Number of tone carriers TX at the same time
 const     uint32_t  SampleRate                = 16000;        // 22KHz (max) sample rate
 const     float     ToneStep                  = ToneBand / ToneLines;     // Tone steps in Hz
-const     float     ToneStart                 = ToneLPFilter - ToneBand;  // Tone start in Hz
 const     uint32_t  NextLineCount             = SecondsOneChar * SampleRate / FONT_LENGTH;
 const     uint32_t  SineTableLength           = 1 << 9;       // Length of sine table
 const     uint32_t  DDSFractionBits           = 16;           // Oscilator 16bit fraction
@@ -95,15 +95,17 @@ void setup()
        );
   }
 
-  printf("Sizeof int      : %d\n", sizeof(int));
-  printf("Sizeof float    : %d\n", sizeof(float));
-  printf("Sizeof double   : %d\n", sizeof(double));
-  printf("SampleRate      : %d\n", SampleRate);
-  printf("ToneStart       : %.3f\n", ToneStart);
-  printf("ToneStep        : %.3f\n", ToneStep);
-  printf("ToneLines       : %d\n", ToneLines);
-  printf("SineTableLength : %d\n", SineTableLength);
-  printf("DDSFractionBits : %d\n", DDSFractionBits);
+  printf("Sizeof int       : %d\n", sizeof(int));
+  printf("Sizeof float     : %d\n", sizeof(float));
+  printf("Sizeof double    : %d\n", sizeof(double));
+  printf("SampleRate       : %d\n", SampleRate);
+  printf("ToneStart        : %.3f\n", ToneStart);
+  printf("ToneStep         : %.3f\n", ToneStep);
+  printf("ToneLines        : %d\n", ToneLines);
+  printf("SineTableLength  : %d\n", SineTableLength);
+  printf("DDSFractionBits  : %d\n", DDSFractionBits);
+  printf("FILTER_TAP_NUM   : %d\n", FILTER_TAP_NUM);
+  printf("FILTER_PRECISION : %d\n", FILTER_PRECISION);
 
   for(uint32_t i = 0; i < ToneLines; ++i)
   {
@@ -156,7 +158,7 @@ void loop()
   }
 
   static uint32_t millisStart = 0;
-  if (millis() - millisStart > 200)
+  if (millis() - millisStart > 500)
   {
     millisStart = millis();
 
@@ -203,59 +205,31 @@ fontGetNextLine()
       indx_char = 0;
   }
 
-//  CharLine <<= 1;           // Shift char one bit
-//  CharLine ^= 0xFFFF;       // Inverse
-//  CharLine |= 0x8000;     // Underline the text
+#if 0
+  CharLine <<= 1;           // Shift char one bit
+  CharLine ^= 0xFFFF;       // Inverse
+#elif 0
+  CharLine |= 0x8000;     // Underline the text
+#endif
 }
 
-
-#if FILTER_TAP_NUM & 0x01
-
-void Filter_put(Filter* f, int input) {
-  f->history[f->last_index++] = input;
-  if(f->last_index == FILTER_TAP_NUM)
-    f->last_index = 0;
-}
-
-int Filter_get(Filter* f) {
-  long long acc = 0;
-  int index = f->last_index, i;
-  for(i = 0; i < FILTER_TAP_NUM; ++i) {
-    index = index != 0 ? index-1 : FILTER_TAP_NUM-1;
-    acc += (long long)f->history[index] * filter_taps[i];
-  };
-  return acc >> 16;
-}
-
-#else
 
 int FilterLP(int input)                         // Input 10bits signed
 {
-//  int32_t FilterACC = 0;                      // acc => 5b (0..32) + 10b sample + 16b taps
-  int64_t FilterACC = 0;                      // acc => 6b (0..64) + 10b sample + 16b taps
+  // int32_t: 5.78b (0..55) + 10b sample + 12.037b taps = 27.817bits
+  //          FILTER_TAP_NUM  0..1024 DAC  High FilterTaps[]
+  int32_t FilterACC = 0;
 
-  FilterHistory[(FilterLastIndex++) & (FILTER_TAP_NUM-1)] = input;    // [.10]
+  FilterHistory[FilterLastIndex++] = input;    // [.10]
+  if(FilterLastIndex == FILTER_TAP_NUM)
+    FilterLastIndex = 0;
 
   int index = FilterLastIndex;
   for(int i = 0; i < FILTER_TAP_NUM; ++i) 
   {
-//    FilterACC += (int32_t)FilterHistory[(index--) & 31] * FilterTaps[i];
-    FilterACC += (int32_t)FilterHistory[(index--) & (FILTER_TAP_NUM-1)] * FilterTaps[i];
+    index = index != 0 ? index-1 : FILTER_TAP_NUM-1;
+    FilterACC += (int32_t)FilterHistory[index] * FilterTaps[i];
   };
 
   return FilterACC >> FILTER_PRECISION;
 }
-
-/*
-
-    // Filter the signal on LP
-    int32_t FilterACC = 0;                      // acc => 5b (0..32) + 10b sample + 16b taps
-    int index = FilterLastIndex;
-    for(int i = 0; i < FILTER_TAP_NUM; ++i) 
-    {
-      int32_t his = FilterHistory[(index--) % FILTER_TAP_NUM];
-      FilterACC += his * FilterTaps[i];         // [10.0] * [0.14]
-    };
-    Signal = FilterACC >> FILTER_PRECISION;
-*/
-#endif
