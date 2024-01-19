@@ -1,4 +1,4 @@
-<b>CallWriter</b>
+#CallWriter
 Write some text in the waterfall display of a (web)receiver.
 
-<img="picure=hackgreen/png">
+#Example: picture=hackgreen.png
