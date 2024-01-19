@@ -1,9 +1,12 @@
 # CallWriter
 Write some text in the waterfall display of a (web) SDR receiver.
-Transmit the DAC output noise by the mic in USB or LSB, AM is also possible.
+This program will transmit the DAC output noise by the mic in a transciever with modulation USB / LSB, AM is also possible.
 
 ## Arduino XIAO board
-This version of my CallWriter is using the [Seeed XIAO cpu (SAMD21G18, ARM® Cortex®-M0+](https://www.seeedstudio.com/Seeeduino-XIAO-Arduino-Microcontroller-SAMD21-Cortex-M0+-p-4426.html)
+This version of my CallWriter is using the [Seeed XIAO cpu (SAMD21G18, ARM® Cortex®-M0+](https://www.seeedstudio.com/Seeeduino-XIAO-Arduino-Microcontroller-SAMD21-Cortex-M0+-p-4426.html).
+The chip is operating up to 48MHz, equipped with 32KB of SRAM, and 256KB of onboard flash memory.
+The hardware did have a embedded DAC with 10bit resolution.
+
 
 ## CallWriter V1
 This was the first version that generate the 16 DDS sinus signals to create a 16x11 character font.
