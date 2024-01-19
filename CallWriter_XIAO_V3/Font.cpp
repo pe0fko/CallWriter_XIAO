@@ -18,6 +18,7 @@
 //**
 //**************************************************************************
 
+#include <Arduino.h>
 
 #define FONT_LENGTH		11
 
@@ -38,7 +39,7 @@ static const uint8_t FontTable[] = {	// Word = Low/High byte
 //	0x01, 0x80, 0x01, 0x80, 0x01, 0x80, 0x01, 0x80, 0x01, 0x80, 0x01, 0x80, 0x01, 0x80, 0x01, 0x80, 0x01, 0x80, 0x01, 0x80, 0x01, 0x80,
 };
 
-#elif 1
+#elif 0
 
 static const uint8_t FontTable[] = {	// Word = Low/High byte
 //  0     1     2     3     4     5     6     7     8     9     10    11    12    13    14    15    16    17    18    19    20    21
@@ -79,10 +80,50 @@ static const uint8_t FontTable[] = {	// Word = Low/High byte
 //	0x10, 0x00, 0x18, 0x00, 0x0C, 0x00, 0x04, 0x00, 0x0C, 0x00, 0x18, 0x00, 0x10, 0x00, 0x18, 0x00, 0x0C, 0x00, 0x04, 0x00, 0x00, 0x00,  // Code for char ~
 };
 
+static    uint8_t   const *pFontTable         = FontTable;    // Pointer to the running char/line
+
+void fontInit(void)
+{
+}
+
+uint32_t
+fontGetNextLine(void)
+{
+	uint32_t  CharLine                  = 0;            // 16 bits of char/line
+  static int indx_char=0;
+
+  if (pFontTable == &FontTable[sizeof FontTable])
+  {
+    pFontTable = &FontTable[0];
+    indx_char = 0;
+  }
+
+  if (indx_char++ < FONT_LENGTH)
+  {
+    CharLine = *pFontTable++ | *pFontTable++ << 8;
+  }
+  else
+  {
+    CharLine = 0;           // Blank line
+    if (indx_char == FONT_LENGTH+2)
+      indx_char = 0;
+  }
+
+#if 0
+  CharLine <<= 1;           // Shift char one bit
+  CharLine ^= 0xFFFF;       // Inverse
+#elif 0
+  CharLine |= 0x8000;     // Underline the text
+#endif
+
+  return CharLine;
+}
+
 #elif 1
 
 static const uint8_t FontTable[] = {	// Word = Low/High byte
-//	0			1			2			3			4			5			6			7			8			9			10    11
+//  0     1     2     3     4     5     6     7     8     9     10    11    12    13    14    15    16    17    18    19    20    21
+//       0    |     1     |     2     |     3     |     4     |     5     |     6     |     7     |     8     |     9     |     10    |
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // Code for char
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7C, 0x00, 0xFF, 0x33, 0xFF, 0x33, 0x7C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // Code for char !
 	0x00, 0x00, 0x00, 0x00, 0x3C, 0x00, 0x3C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3C, 0x00, 0x3C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // Code for char "
@@ -180,5 +221,55 @@ static const uint8_t FontTable[] = {	// Word = Low/High byte
 	0x10, 0x00, 0x18, 0x00, 0x0C, 0x00, 0x04, 0x00, 0x0C, 0x00, 0x18, 0x00, 0x10, 0x00, 0x18, 0x00, 0x0C, 0x00, 0x04, 0x00, 0x00, 0x00,  // Code for char ~
 	0x00, 0x0F, 0x80, 0x0F, 0xC0, 0x0C, 0x60, 0x0C, 0x30, 0x0C, 0x30, 0x0C, 0x60, 0x0C, 0xC0, 0x0C, 0x80, 0x0F, 0x00, 0x0F, 0x00, 0x00   // Code for char 
 };
+
+static	char		TxText[]				= "CQ-PE0FKO.nl-73-JO32cd-";
+static	char*		TxTextPtr;
+
+static	uint8_t		const *FontTablePtr		= FontTable;    // Pointer to the running char/line
+
+
+void fontInit(void)
+{
+	FontTablePtr = FontTable;
+	TxTextPtr = &TxText[0];
+}
+
+const char* fontGetNextChar(void)
+{
+	char chr;
+	do {
+		if (*TxTextPtr == '\0')
+			TxTextPtr = &TxText[0];
+		chr = *TxTextPtr++;
+	} while (!(chr >= 0x20 && chr < 128));		// Check empty string!
+
+//	Serial.printf("Next char \'%c\' [%02x]", chr, chr);
+
+	chr -= 0x20;								// Revove the control char set
+	FontTablePtr = &FontTable[chr * 2 * FONT_LENGTH];
+}
+
+uint32_t fontGetNextLine(void)
+{
+static int indx_char = 0;
+	uint32_t	line;
+
+	if (indx_char++ >= FONT_LENGTH) 
+	{
+		indx_char = 0;
+		fontGetNextChar();
+	}
+
+	line = *FontTablePtr++ | *FontTablePtr++ << 8;
+
+#if 0
+  line <<= 1;			// Shift char one bit
+  line ^= 0xFFFF;		// Inverse
+#elif 0
+  line |= 0x8000;		// Underline the text
+#endif
+
+  return line;
+}
 
 #endif

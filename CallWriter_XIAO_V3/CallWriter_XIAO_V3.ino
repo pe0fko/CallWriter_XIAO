@@ -16,7 +16,7 @@
 //**************************************************************************
 
 #include <TimerTC3.h>
-#include "Font.h"
+//#include "Font.h"
 #include "Filter.h"
 
 #define   DEBUG
@@ -29,15 +29,14 @@ const     uint32_t  SineTableLength           = 1 << 9;       // Length of sine 
 const     uint32_t  DDSFractionBits           = 16;           // Oscilator 16bit fraction
 
 const     float     ToneStep                  = ToneBand / ToneLines; // Tone steps in Hz
-const     uint32_t  SamplesOneChar            = SecondsOneChar * FILTER_SAMPLE_FREQ / FONT_LENGTH;
+
+//const     uint32_t  SamplesOneChar            = SecondsOneChar * FILTER_SAMPLE_FREQ / FONT_LENGTH;
+const     uint32_t  SamplesOneChar            = SecondsOneChar * FILTER_SAMPLE_FREQ / 11;
 
 volatile  uint32_t  SampleDAC                 = 0;            // New sample for the DAC output
 static    int32_t   SineTable[SineTableLength];               // Sinus table to use in DDS
 static    uint32_t  DDSToneAcc[ToneLines]     = { 0 };        // DDS accumulator for the tones
 static    uint32_t  DDSTonePhase[ToneLines]   = { 0 };        // DDS phase register to index the sine table
-static    uint8_t   const *pFontTable         = FontTable;    // Pointer to the running char/line
-static    uint32_t  CharLine                  = 0;            // 16 bits of char/line
-static    uint32_t  CharLineNextCount         = 0;            // Samplerate count for next char line load.
 static    bool      GetNewSample              = true;         // Flag to get a new/next sample for the DAC
 static    int16_t   FilterHistory[FILTER_TAP_NUM] = { 0 };    // The bandpass filter history sample array
 static    uint32_t  FilterLastIndex           = 0;            // Index in the FilterHistory array
@@ -48,6 +47,9 @@ static    uint32_t  StartTimerOverflow        = 0;            // Interrupt DAC o
 #else
 #define   printf(...)
 #endif
+
+extern    void        fontInit(void);
+extern    uint32_t    fontGetNextLine(void);
 
 
 //=====================================================================
@@ -95,6 +97,8 @@ void setup()
        );
   }
 
+  fontInit();
+
   printf("Sizeof int         : %d\n", sizeof(int));
   printf("Sizeof float       : %d\n", sizeof(float));
   printf("Sizeof double      : %d\n", sizeof(double));
@@ -103,7 +107,7 @@ void setup()
   printf("ToneBand           : %.3f\n", ToneBand);
   printf("ToneStep           : %.3f\n", ToneStep);
   printf("SecondsOneChar     : %.3f\n", SecondsOneChar);
-  printf("SamplesOneChar     : %d\n", SamplesOneChar);
+//printf("SamplesOneChar     : %d\n", SamplesOneChar);
   printf("ToneLines          : %d\n", ToneLines);
   printf("SineTableLength    : %d\n", SineTableLength);
   printf("DDSFractionBits    : %d\n", DDSFractionBits);
@@ -133,6 +137,10 @@ void setup()
 //=====================================================================
 void loop() 
 {
+
+static    uint32_t  CharLine                  = 0;            // 16 bits of char/line
+static    uint32_t  CharLineNextCount         = 0;            // Samplerate count for next char line load.
+
   if (GetNewSample)
   {
     int Signal = 0;
@@ -156,7 +164,7 @@ void loop()
     if (CharLineNextCount++ == SamplesOneChar) 
     {
       CharLineNextCount = 0;
-      fontGetNextLine();
+      CharLine = fontGetNextLine();
     }
   }
 
@@ -180,36 +188,6 @@ void timerIsr()
   }
 
   GetNewSample = true;                            // Generate a new sample in the loop()
-}
-
-void
-fontGetNextLine()
-{
-  static int indx_char=0;
-
-  if (pFontTable == &FontTable[sizeof FontTable])
-  {
-    pFontTable = &FontTable[0];
-    indx_char = 0;
-  }
-
-  if (indx_char++ < FONT_LENGTH)
-  {
-    CharLine = *pFontTable++ | *pFontTable++ << 8;
-  }
-  else
-  {
-    CharLine = 0;           // Blank line
-    if (indx_char == FONT_LENGTH+2)
-      indx_char = 0;
-  }
-
-#if 0
-  CharLine <<= 1;           // Shift char one bit
-  CharLine ^= 0xFFFF;       // Inverse
-#elif 0
-  CharLine |= 0x8000;     // Underline the text
-#endif
 }
 
 // TODO Taps[] only half use
