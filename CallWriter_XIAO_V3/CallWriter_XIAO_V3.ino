@@ -67,7 +67,7 @@ void setup()
   StartTimerOverflow = 0;
 #endif
 
-  printf("\n-- CallWriter V2.00 ------ PE0FKO --------\n");
+  printf("\n-- CallWriter V3.00 ------ PE0FKO --------\n");
 
   printf("Generate sine table, length=%d\n", SineTableLength);
   for(uint32_t i = 0; i < SineTableLength; i++)
