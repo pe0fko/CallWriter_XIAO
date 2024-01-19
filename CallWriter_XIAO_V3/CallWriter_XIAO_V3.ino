@@ -182,6 +182,36 @@ void timerIsr()
   GetNewSample = true;                            // Generate a new sample in the loop()
 }
 
+void
+fontGetNextLine()
+{
+  static int indx_char=0;
+
+  if (pFontTable == &FontTable[sizeof FontTable])
+  {
+    pFontTable = &FontTable[0];
+    indx_char = 0;
+  }
+
+  if (indx_char++ < FONT_LENGTH)
+  {
+    CharLine = *pFontTable++ | *pFontTable++ << 8;
+  }
+  else
+  {
+    CharLine = 0;           // Blank line
+    if (indx_char == FONT_LENGTH+2)
+      indx_char = 0;
+  }
+
+#if 0
+  CharLine <<= 1;           // Shift char one bit
+  CharLine ^= 0xFFFF;       // Inverse
+#elif 0
+  CharLine |= 0x8000;     // Underline the text
+#endif
+}
+
 // TODO Taps[] only half use
 int FilterLP(int input)                         // Input 10bits signed
 {
