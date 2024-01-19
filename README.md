@@ -15,7 +15,7 @@ flipping on and off.
 ## CallWriter V3
 The text transmitted can be changed by the USB serial input.
 
-## Picture
+## CallWriter in the wild
 Received at HackGreen:
 ![SDR receiver hackgreensdr.org at 40m](/images/hackgreen.png)
 http://hackgreensdr.org:8901/
