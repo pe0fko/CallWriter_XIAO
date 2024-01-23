@@ -13,6 +13,8 @@
 //**
 //**************************************************************************
 
+#if 0
+
 #define FILTER_TAP_NUM      81
 #define FILTER_PRECISION    16
 #define FILTER_SAMPLE_FREQ  20000
@@ -121,3 +123,123 @@ int32_t FilterTaps[FILTER_TAP_NUM] =
   6,
   163
 };
+
+#elif 1
+
+/*
+
+FIR filter designed with
+http://t-filter.appspot.com
+
+sampling frequency: 20000 Hz
+
+fixed point precision: 16 bits
+
+* 0 Hz - 700 Hz
+  gain = 0
+  desired attenuation = -30 dB
+  actual attenuation = n/a
+
+* 1000 Hz - 1400 Hz
+  gain = 1
+  desired ripple = 3 dB
+  actual ripple = n/a
+
+* 1700 Hz - 10000 Hz
+  gain = 0
+  desired attenuation = -30 dB
+  actual attenuation = n/a
+
+*/
+
+#define FILTER_TAP_NUM      83
+#define FILTER_PRECISION    16
+#define FILTER_SAMPLE_FREQ  20000
+
+static int filter_taps[FILTER_TAP_NUM] = {
+  502,
+  21,
+  1,
+  -26,
+  -52,
+  -68,
+  -68,
+  -51,
+  -22,
+  7,
+  23,
+  12,
+  -37,
+  -123,
+  -237,
+  -357,
+  -453,
+  -493,
+  -450,
+  -307,
+  -67,
+  245,
+  586,
+  896,
+  1113,
+  1180,
+  1062,
+  751,
+  274,
+  -309,
+  -912,
+  -1437,
+  -1792,
+  -1904,
+  -1739,
+  -1304,
+  -653,
+  122,
+  902,
+  1570,
+  2018,
+  2176,
+  2018,
+  1570,
+  902,
+  122,
+  -653,
+  -1304,
+  -1739,
+  -1904,
+  -1792,
+  -1437,
+  -912,
+  -309,
+  274,
+  751,
+  1062,
+  1180,
+  1113,
+  896,
+  586,
+  245,
+  -67,
+  -307,
+  -450,
+  -493,
+  -453,
+  -357,
+  -237,
+  -123,
+  -37,
+  12,
+  23,
+  7,
+  -22,
+  -51,
+  -68,
+  -68,
+  -52,
+  -26,
+  1,
+  21,
+  502
+};
+
+#endif
